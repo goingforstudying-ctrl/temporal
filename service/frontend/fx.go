@@ -246,7 +246,12 @@ func GrpcServerOptionsProvider(
 	customInterceptors []grpc.UnaryServerInterceptor,
 	customStreamInterceptors []grpc.StreamServerInterceptor,
 	metricsHandler metrics.Handler,
+	testHooks testhooks.TestHooks,
 ) GrpcServerOptions {
+	if hook, ok := testhooks.Get(testHooks, testhooks.ServiceGrpcInterceptors, testhooks.GlobalScope); ok {
+		hook(serviceName, &customInterceptors, &customStreamInterceptors)
+	}
+
 	kep := keepalive.EnforcementPolicy{
 		MinTime:             serviceConfig.KeepAliveMinTime(),
 		PermitWithoutStream: serviceConfig.KeepAlivePermitWithoutStream(),

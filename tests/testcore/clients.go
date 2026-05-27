@@ -113,6 +113,9 @@ func (c *clients) ensureHistory() {
 }
 
 func (c *clients) MatchingClient() matchingservice.MatchingServiceClient {
+	if c.matching.client == nil {
+		c.logger.Fatal("matching test client has not been initialized")
+	}
 	return c.matching.client
 }
 

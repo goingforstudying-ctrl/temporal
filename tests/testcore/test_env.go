@@ -26,12 +26,10 @@ import (
 	"go.temporal.io/server/common/dynamicconfig"
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/namespace"
-	"go.temporal.io/server/common/primitives"
 	"go.temporal.io/server/common/testing/taskpoller"
 	"go.temporal.io/server/common/testing/testhooks"
 	"go.temporal.io/server/common/testing/testlogger"
 	"go.temporal.io/server/common/testing/testvars"
-	"go.uber.org/fx"
 )
 
 // shardSalt is used to distribute functional tests across shards.
@@ -46,9 +44,7 @@ var (
 )
 
 type Env interface {
-	// T returns the *testing.T.
-	//
-	// Deprecated: use the suite's T() method instead.
+	// T returns the *testing.T. Deprecated: use the suite's T() method instead.
 	T() *testing.T
 	Namespace() namespace.Name
 	NamespaceID() namespace.ID
@@ -132,24 +128,6 @@ func WithSdkWorker() TestOption {
 	}
 }
 
-// WithTestVars customizes the default test variables for the environment.
-func WithTestVars(fn func(*testvars.TestVars) *testvars.TestVars) TestOption {
-	return func(o *testOptions) {
-		o.testVars = fn
-	}
-}
-
-// WithFxOptions appends fx options to a specific service's fx graph. This
-// implies a dedicated cluster because custom fx options cannot be shared
-// across tests.
-func WithFxOptions(serviceName primitives.ServiceName, opts ...fx.Option) TestOption {
-	return func(o *testOptions) {
-		o.dedicatedCluster = true
-		o.clusterOptions = append(o.clusterOptions, WithFxOptionsForService(serviceName, opts...))
-		o.dedicatedReason = "custom fx options used"
-	}
-}
-
 // WithWorkerService enables the system worker service. The service is off by
 // default to avoid the worker overhead. This implies a dedicated cluster.
 func WithWorkerService(reason string) TestOption {
@@ -160,13 +138,10 @@ func WithWorkerService(reason string) TestOption {
 	}
 }
 
-// WithMTLS enables mutual TLS on the test's cluster. This implies a dedicated
-// cluster, since the TLS configuration cannot be shared across tests.
-func WithMTLS() TestOption {
+func WithClusterOptions(options ...TestClusterOption) TestOption {
 	return func(o *testOptions) {
 		o.dedicatedCluster = true
-		o.clusterOptions = append(o.clusterOptions, withMTLS())
-		o.dedicatedReason = "mTLS enabled"
+		o.clusterOptions = append(o.clusterOptions, options...)
 	}
 }
 
@@ -212,6 +187,12 @@ func WithDynamicConfig(setting dynamicconfig.GenericSetting, value any) TestOpti
 			o.dedicatedCluster = true
 		}
 		o.dynamicConfigSettings = append(o.dynamicConfigSettings, dynamicConfigOverride{setting: setting, value: value})
+	}
+}
+
+func WithTestVars(fn func(*testvars.TestVars) *testvars.TestVars) TestOption {
+	return func(o *testOptions) {
+		o.testVars = fn
 	}
 }
 
@@ -261,11 +242,6 @@ func NewEnv(t *testing.T, opts ...TestOption) *TestEnv {
 		t.Fatalf("Failed to register namespace: %v", err)
 	}
 
-	tv := testvars.New(t)
-	if options.testVars != nil {
-		tv = options.testVars(tv)
-	}
-
 	env := &TestEnv{
 		FunctionalTestBase: base,
 		Assertions:         require.New(t),
@@ -275,7 +251,7 @@ func NewEnv(t *testing.T, opts ...TestOption) *TestEnv {
 		Logger:             base.Logger,
 		taskPoller:         taskpoller.New(t, cluster.FrontendClient(), ns.String()),
 		t:                  t,
-		tv:                 tv,
+		tv:                 testvars.New(t),
 		ctx:                setupTestTimeoutWithContext(t),
 		sdkWorkerTQ:        RandomizeStr("tq-" + t.Name()),
 		dedicatedGuard:     dedicatedGuard,
@@ -300,6 +276,9 @@ func NewEnv(t *testing.T, opts ...TestOption) *TestEnv {
 		for _, override := range options.dynamicConfigSettings {
 			env.OverrideDynamicConfig(override.setting, override.value)
 		}
+	}
+	if options.testVars != nil {
+		env.tv = options.testVars(env.tv)
 	}
 
 	return env
@@ -367,7 +346,6 @@ func (e *TestEnv) TaskPoller() *taskpoller.TaskPoller {
 }
 
 // NoError asserts that err is nil.
-//
 // Deprecated: use require.NoError with the parent test or suite instead.
 // TODO: remove once all tests are migrated to TestEnv (and no longer use FunctionalTestBase directly).
 func (e *TestEnv) NoError(err error, msgAndArgs ...any) {
@@ -375,7 +353,6 @@ func (e *TestEnv) NoError(err error, msgAndArgs ...any) {
 }
 
 // Error asserts that err is not nil.
-//
 // Deprecated: use require.Error with the parent test or suite instead.
 // TODO: remove once all tests are migrated to TestEnv (and no longer use FunctionalTestBase directly).
 func (e *TestEnv) Error(err error, msgAndArgs ...any) {
@@ -383,16 +360,13 @@ func (e *TestEnv) Error(err error, msgAndArgs ...any) {
 }
 
 // Run executes a subtest.
-//
 // Deprecated: use the suite's Run method instead.
 // TODO: remove once all tests are migrated to TestEnv (and no longer use FunctionalTestBase directly).
 func (e *TestEnv) Run(name string, subtest func()) bool {
 	return e.FunctionalTestBase.Run(name, subtest)
 }
 
-// T returns the *testing.T.
-//
-// Deprecated: use the suite's T() method instead.
+// T returns the *testing.T. Deprecated: use the suite's T() method instead.
 func (e *TestEnv) T() *testing.T {
 	return e.t
 }
