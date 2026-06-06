@@ -95,6 +95,7 @@ type testOptions struct {
 	dedicatedReason          string
 	disableTestloggerFailure bool
 	dynamicConfigSettings    []dynamicConfigOverride
+	testHooks                []testhooks.Hook
 	clusterOptions           []TestClusterOption
 	testVars                 func(*testvars.TestVars) *testvars.TestVars
 }
@@ -215,6 +216,16 @@ func WithDynamicConfig(setting dynamicconfig.GenericSetting, value any) TestOpti
 	}
 }
 
+// WithTestHook injects a test hook for the duration of the test.
+func WithTestHook(hook testhooks.Hook) TestOption {
+	return func(o *testOptions) {
+		if hook.Scope() == testhooks.ScopeGlobal {
+			o.dedicatedCluster = true
+		}
+		o.testHooks = append(o.testHooks, hook)
+	}
+}
+
 // NewEnv creates a new test environment with access to a Temporal cluster.
 func NewEnv(t *testing.T, opts ...TestOption) *TestEnv {
 	t.Helper()
@@ -300,6 +311,9 @@ func NewEnv(t *testing.T, opts ...TestOption) *TestEnv {
 		for _, override := range options.dynamicConfigSettings {
 			env.OverrideDynamicConfig(override.setting, override.value)
 		}
+	}
+	for _, hook := range options.testHooks {
+		env.InjectHook(hook)
 	}
 
 	return env
