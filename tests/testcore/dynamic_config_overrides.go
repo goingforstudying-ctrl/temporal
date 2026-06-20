@@ -26,9 +26,8 @@ var (
 	//        doesn't allow parallel execution of tests in the same suite anyway. If one day, it is allowed,
 	//        unique namespaces with overrides per namespace should be used for tests that require overrides.
 	defaultDynamicConfigOverrides = map[dynamicconfig.Key]any{
-		dynamicconfig.FrontendRPS.Key():                                 3000,
-		dynamicconfig.FrontendNamespaceReplicationInducingAPIsRPS.Key(): 1000,
-		// Run namespace deletion tests at full speed.
+		dynamicconfig.FrontendRPS.Key():                                         3000,
+		dynamicconfig.FrontendNamespaceReplicationInducingAPIsRPS.Key():         1000,
 		dynamicconfig.DeleteNamespaceDeleteActivityRPS.Key():                    1000000,
 		dynamicconfig.FrontendMaxNamespaceVisibilityRPSPerInstance.Key():        50,
 		dynamicconfig.FrontendMaxNamespaceVisibilityBurstRatioPerInstance.Key(): 1,
