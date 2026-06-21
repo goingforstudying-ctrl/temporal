@@ -331,11 +331,11 @@ func MatchingRawClientProvider(
 	clientBean client.Bean,
 	namespaceRegistry namespace.Registry,
 ) (MatchingRawClient, error) {
-	client, err := clientBean.GetMatchingClient(namespaceRegistry.GetNamespaceName)
+	matchingClient, err := clientBean.GetMatchingClient(namespaceRegistry.GetNamespaceName)
 	if err != nil {
 		return nil, err
 	}
-	return client, nil
+	return matchingClient, nil
 }
 
 func MatchingClientProvider(matchingRawClient MatchingRawClient) MatchingClient {

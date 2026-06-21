@@ -240,7 +240,12 @@ func managerProvider[T persistence.Closeable](newManagerFn func(Factory) (T, err
 		}
 		if executionManager, ok := any(manager).(persistence.ExecutionManager); ok {
 			if hook, ok := testhooks.Get(params.TestHooks, testhooks.HistoryTasksWrittenObserver, testhooks.GlobalScope); ok {
-				manager = any(newHistoryTasksWrittenObserver(executionManager, hook)).(T)
+				wrapped, ok := any(newHistoryTasksWrittenObserver(executionManager, hook)).(T)
+				if !ok {
+					var nilT T
+					return nilT, errors.New("history tasks written observer produced unexpected execution manager type")
+				}
+				manager = wrapped
 			}
 		}
 		params.Lifecycle.Append(fx.StopHook(manager.Close))

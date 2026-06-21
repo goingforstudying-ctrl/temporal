@@ -48,7 +48,7 @@ func (tc *TestCluster) checkNamespaceAvailable(
 ) error {
 	hosts := tc.host.hostsByProtocolByService[grpcProtocol][primitives.FrontendService].All
 	if len(hosts) == 0 {
-		return fmt.Errorf("no frontend gRPC hosts configured")
+		return errors.New("no frontend gRPC hosts configured")
 	}
 
 	var errs []error

@@ -382,7 +382,7 @@ func (s *xdcBaseSuite) promoteNamespace(
 
 	s.waitForNamespaceAvailable(s.clusters[inClusterIndex], ns, namespaceCacheWaitTime, func(resp *workflowservice.DescribeNamespaceResponse) error {
 		if !resp.GetIsGlobalNamespace() {
-			return fmt.Errorf("namespace is not global")
+			return errors.New("namespace is not global")
 		}
 		return nil
 	})
@@ -424,12 +424,12 @@ func (s *xdcBaseSuite) failover(
 }
 
 func (s *xdcBaseSuite) waitForNamespaceAvailable(
-	cluster *testcore.TestCluster,
+	testCluster *testcore.TestCluster,
 	ns string,
 	waitTime time.Duration,
 	check testcore.NamespaceAvailabilityCheck,
 ) {
-	s.Require().NoError(cluster.WaitForNamespaceAvailable(
+	s.Require().NoError(testCluster.WaitForNamespaceAvailable(
 		testcore.NewContext(),
 		ns,
 		waitTime,
@@ -440,8 +440,8 @@ func (s *xdcBaseSuite) waitForNamespaceAvailable(
 
 func compareNamespaceClusters(resp *workflowservice.DescribeNamespaceResponse, want []string) error {
 	got := make([]string, 0, len(resp.GetReplicationConfig().GetClusters()))
-	for _, cluster := range resp.GetReplicationConfig().GetClusters() {
-		got = append(got, cluster.GetClusterName())
+	for _, namespaceCluster := range resp.GetReplicationConfig().GetClusters() {
+		got = append(got, namespaceCluster.GetClusterName())
 	}
 	if !slices.Equal(got, want) {
 		return fmt.Errorf("namespace clusters = %v, want %v", got, want)

@@ -2,6 +2,7 @@ package testcore
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -202,7 +203,7 @@ func (c *clients) tlsConfig(serviceName primitives.ServiceName) (*tls.Config, er
 func (c *clients) newMatchingClient() (matchingservice.MatchingServiceClient, error) {
 	resolver := newTestMatchingServiceResolver(c.hostsByService[primitives.MatchingService].All)
 	if resolver.MemberCount() == 0 {
-		return nil, fmt.Errorf("no matching gRPC hosts configured")
+		return nil, errors.New("no matching gRPC hosts configured")
 	}
 
 	clientProvider := func(clientKey string) (any, func() error, error) {
