@@ -235,12 +235,12 @@ func (s *TestCluster) LoadSchemaVersion() {
 		nil,
 	)
 	if err != nil {
-		panic(err)
+		s.logger.Fatal("NewSQLAdminDB", tag.Error(err))
 	}
 	defer func() {
 		err := db.Close()
 		if err != nil {
-			panic(err)
+			s.logger.Fatal("Close schema version DB", tag.Error(err))
 		}
 	}()
 
