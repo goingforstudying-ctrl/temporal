@@ -123,12 +123,12 @@ func (s *TestCluster) CreateDatabase() {
 		nil,
 	)
 	if err != nil {
-		panic(err)
+		s.logger.Fatal("NewSQLAdminDB", tag.Error(err))
 	}
 	defer func() {
 		err := db.Close()
 		if err != nil {
-			panic(err)
+			s.logger.Fatal("Close schema version DB", tag.Error(err))
 		}
 	}()
 	err = db.CreateDatabase(s.cfg.DatabaseName)
