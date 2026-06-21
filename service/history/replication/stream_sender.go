@@ -27,6 +27,7 @@ import (
 	"go.temporal.io/server/common/namespace"
 	"go.temporal.io/server/common/primitives/timestamp"
 	"go.temporal.io/server/common/quotas"
+	"go.temporal.io/server/common/testing/testhooks"
 	"go.temporal.io/server/service/history/configs"
 	historyi "go.temporal.io/server/service/history/interfaces"
 	"go.temporal.io/server/service/history/shard"
@@ -59,6 +60,7 @@ type (
 		recvSignalChan          chan struct{}
 		shutdownChan            channel.ShutdownOnce
 		config                  *configs.Config
+		testHooks               testhooks.TestHooks
 		isTieredStackEnabled    bool
 		flowController          SenderFlowController
 		sendLock                sync.Mutex
@@ -77,6 +79,7 @@ func NewStreamSender(
 	clientShardKey ClusterShardKey,
 	serverShardKey ClusterShardKey,
 	config *configs.Config,
+	testHooks testhooks.TestHooks,
 ) *StreamSenderImpl {
 	logger := log.With(
 		shardContext.GetLogger(),
@@ -100,6 +103,7 @@ func NewStreamSender(
 		recvSignalChan:          make(chan struct{}, 1),
 		shutdownChan:            channel.NewShutdownOnce(),
 		config:                  config,
+		testHooks:               testHooks,
 		isTieredStackEnabled:    config.EnableReplicationTaskTieredProcessing(),
 		flowController:          NewSenderFlowController(config, logger),
 		ssRateLimiter:           ssRateLimiter,
@@ -188,6 +192,16 @@ func (s *StreamSenderImpl) recvEventLoop() (retErr error) {
 		req, err := s.server.Recv()
 		if err != nil {
 			return NewStreamError("StreamSender failed to receive", err)
+		}
+		if hasReplicationStreamMessageObserver(s.testHooks) {
+			observeReplicationStreamMessage(
+				s.testHooks,
+				historyStreamWorkflowReplicationMessagesMethod,
+				testhooks.ReplicationStreamDirectionServerRecv,
+				s.shardContext.GetClusterMetadata().GetCurrentClusterName(),
+				s.clientClusterName,
+				req,
+			)
 		}
 		switch attr := req.GetAttributes().(type) {
 		case *historyservice.StreamWorkflowReplicationMessagesRequest_SyncReplicationState:
@@ -663,6 +677,16 @@ Loop:
 func (s *StreamSenderImpl) sendToStream(payload *historyservice.StreamWorkflowReplicationMessagesResponse) error {
 	s.sendLock.Lock()
 	defer s.sendLock.Unlock()
+	if hasReplicationStreamMessageObserver(s.testHooks) {
+		observeReplicationStreamMessage(
+			s.testHooks,
+			historyStreamWorkflowReplicationMessagesMethod,
+			testhooks.ReplicationStreamDirectionServerSend,
+			s.shardContext.GetClusterMetadata().GetCurrentClusterName(),
+			s.clientClusterName,
+			payload,
+		)
+	}
 	err := s.server.Send(payload)
 	if err != nil {
 		return NewStreamError("Stream Sender unable to send", err)

@@ -44,7 +44,6 @@ import (
 	"go.temporal.io/server/components/nexusoperations"
 	"go.temporal.io/server/temporal"
 	"go.uber.org/multierr"
-	"google.golang.org/grpc"
 )
 
 type (
@@ -140,6 +139,12 @@ func newTemporal(t *testing.T, params *TemporalParams) *TemporalImpl {
 		impl.logger,
 		impl.hostsByProtocolByService[grpcProtocol],
 		impl.tlsConfigProvider,
+	)
+	_ = testhooks.Set(
+		impl.testHooks,
+		testhooks.ReplicationStreamMessageObserver,
+		impl.replicationStreamRecorder.Observe,
+		testhooks.GlobalScope,
 	)
 
 	// Configure output file path for on-demand logging (call WriteToLog() to write)
@@ -302,11 +307,6 @@ func (c *TemporalImpl) serverOptionsForHost(
 	if c.tokenProvider != nil {
 		options = append(options, temporal.WithTokenProvider(c.tokenProvider))
 	}
-	if serviceName == primitives.FrontendService && c.replicationStreamRecorder != nil {
-		options = append(options, temporal.WithChainedFrontendGrpcInterceptors(
-			c.replicationStreamRecorder.UnaryServerInterceptor(c.config.ClusterMetadata.CurrentClusterName),
-		))
-	}
 	options = append(options, c.serverOptions...)
 	return options
 }
@@ -324,53 +324,6 @@ func (c *TemporalImpl) installHostTestHooks(
 		testhooks.ChasmRegistryInitializer,
 		func(registry *chasm.Registry) error {
 			return registry.Register(chasmtests.Library)
-		},
-		testhooks.GlobalScope,
-	))
-	addCleanup(testhooks.Set(
-		c.testHooks,
-		testhooks.ServiceClientDialOptions,
-		func(options map[primitives.ServiceName][]grpc.DialOption) {
-			dialOptions := c.clientDialOptions()
-			if len(dialOptions) == 0 {
-				return
-			}
-			for _, serviceName := range []primitives.ServiceName{
-				primitives.FrontendService,
-				primitives.InternalFrontendService,
-				primitives.HistoryService,
-				primitives.MatchingService,
-			} {
-				options[serviceName] = append(options[serviceName], dialOptions...)
-			}
-		},
-		testhooks.GlobalScope,
-	))
-	addCleanup(testhooks.Set(
-		c.testHooks,
-		testhooks.ServiceGrpcInterceptors,
-		func(name primitives.ServiceName, unaryInterceptors *[]grpc.UnaryServerInterceptor, streamInterceptors *[]grpc.StreamServerInterceptor) {
-			switch name {
-			case primitives.FrontendService:
-				if c.replicationStreamRecorder != nil {
-					*streamInterceptors = append(
-						*streamInterceptors,
-						c.replicationStreamRecorder.StreamServerInterceptor(c.config.ClusterMetadata.CurrentClusterName),
-					)
-				}
-			case primitives.HistoryService:
-				if c.replicationStreamRecorder != nil {
-					*unaryInterceptors = append(
-						*unaryInterceptors,
-						c.replicationStreamRecorder.UnaryServerInterceptor(c.config.ClusterMetadata.CurrentClusterName),
-					)
-					*streamInterceptors = append(
-						*streamInterceptors,
-						c.replicationStreamRecorder.StreamServerInterceptor(c.config.ClusterMetadata.CurrentClusterName),
-					)
-				}
-			default:
-			}
 		},
 		testhooks.GlobalScope,
 	))
@@ -416,17 +369,6 @@ func (c *TemporalImpl) installHostTestHooks(
 			cleanups[i]()
 		}
 	}
-}
-
-func (c *TemporalImpl) clientDialOptions() []grpc.DialOption {
-	var options []grpc.DialOption
-	if c.replicationStreamRecorder != nil {
-		options = append(options,
-			grpc.WithChainUnaryInterceptor(c.replicationStreamRecorder.UnaryInterceptor(c.config.ClusterMetadata.CurrentClusterName)),
-			grpc.WithChainStreamInterceptor(c.replicationStreamRecorder.StreamInterceptor(c.config.ClusterMetadata.CurrentClusterName)),
-		)
-	}
-	return options
 }
 
 func (c *TemporalImpl) configForHost(serviceName primitives.ServiceName, host string) *config.Config {

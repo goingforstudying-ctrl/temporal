@@ -293,7 +293,7 @@ func (r *StreamReceiverImpl) ackMessage(
 		return 0, NewStreamError("InclusiveLowWaterMark is not set", serviceerror.NewInternal("Invalid inclusive low watermark"))
 	}
 
-	if err := stream.Send(&adminservice.StreamWorkflowReplicationMessagesRequest{
+	req := &adminservice.StreamWorkflowReplicationMessagesRequest{
 		Attributes: &adminservice.StreamWorkflowReplicationMessagesRequest_SyncReplicationState{
 			SyncReplicationState: &replicationspb.SyncReplicationState{
 				InclusiveLowWatermark:     inclusiveLowWaterMark,
@@ -302,7 +302,18 @@ func (r *StreamReceiverImpl) ackMessage(
 				LowPriorityState:          lowPriorityWatermark,
 			},
 		},
-	}); err != nil {
+	}
+	if hasReplicationStreamMessageObserver(r.TestHooks) {
+		observeReplicationStreamMessage(
+			r.TestHooks,
+			adminStreamWorkflowReplicationMessagesMethod,
+			testhooks.ReplicationStreamDirectionSend,
+			r.ClusterMetadata.GetCurrentClusterName(),
+			r.ClusterMetadata.ClusterNameForFailoverVersion(true, int64(r.serverShardKey.ClusterID)),
+			req,
+		)
+	}
+	if err := stream.Send(req); err != nil {
 		return 0, NewStreamError("stream_receiver failed to send", err)
 	}
 	metrics.ReplicationTasksRecvBacklog.With(r.MetricsHandler).Record(
@@ -340,6 +351,16 @@ func (r *StreamReceiverImpl) processMessages(
 		}
 		if streamResp.Err != nil {
 			return streamResp.Err
+		}
+		if hasReplicationStreamMessageObserver(r.TestHooks) {
+			observeReplicationStreamMessage(
+				r.TestHooks,
+				adminStreamWorkflowReplicationMessagesMethod,
+				testhooks.ReplicationStreamDirectionRecv,
+				r.ClusterMetadata.GetCurrentClusterName(),
+				clusterName,
+				streamResp.Resp,
+			)
 		}
 
 		messages := streamResp.Resp.GetMessages()

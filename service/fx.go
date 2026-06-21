@@ -15,7 +15,6 @@ import (
 	"go.temporal.io/server/common/rpc"
 	"go.temporal.io/server/common/rpc/interceptor"
 	"go.temporal.io/server/common/telemetry"
-	"go.temporal.io/server/common/testing/testhooks"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 )
@@ -52,7 +51,6 @@ type (
 		ContextMetadataInterceptor    *interceptor.ContextMetadataInterceptor `optional:"true"`
 		AdditionalInterceptors        []grpc.UnaryServerInterceptor           `optional:"true"`
 		AdditionalStreamInterceptors  []grpc.StreamServerInterceptor          `optional:"true"`
-		TestHooks                     testhooks.TestHooks
 	}
 )
 
@@ -127,10 +125,6 @@ func NewPersistenceRateLimitingParams(
 func GrpcServerOptionsProvider(
 	params GrpcServerOptionsParams,
 ) []grpc.ServerOption {
-	if hook, ok := testhooks.Get(params.TestHooks, testhooks.ServiceGrpcInterceptors, testhooks.GlobalScope); ok {
-		hook(params.ServiceName, &params.AdditionalInterceptors, &params.AdditionalStreamInterceptors)
-	}
-
 	grpcServerOptions, err := params.RPCFactory.GetInternodeGRPCServerOptions()
 	if err != nil {
 		params.Logger.Fatal("creating gRPC server options failed", tag.Error(err))

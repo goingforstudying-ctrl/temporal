@@ -414,16 +414,12 @@ func DCRedirectionPolicyProvider(cfg *config.Config) config.DCRedirectionPolicy 
 
 func PerServiceDialOptionsProvider(
 	logger log.SnTaggedLogger,
-	testHooks testhooks.TestHooks,
 ) map[primitives.ServiceName][]grpc.DialOption {
 	trailerInterceptor := interceptor.TrailerToContextMetadataInterceptor(logger)
 	dialOpt := grpc.WithChainUnaryInterceptor(trailerInterceptor)
 	options := map[primitives.ServiceName][]grpc.DialOption{
 		primitives.HistoryService:  {dialOpt},
 		primitives.MatchingService: {dialOpt},
-	}
-	if hook, ok := testhooks.Get(testHooks, testhooks.ServiceClientDialOptions, testhooks.GlobalScope); ok {
-		hook(options)
 	}
 	return options
 }

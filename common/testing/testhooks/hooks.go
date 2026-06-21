@@ -14,7 +14,7 @@ import (
 	"go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/primitives"
 	historytasks "go.temporal.io/server/service/history/tasks"
-	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 type (
@@ -23,6 +23,24 @@ type (
 		VisibilityManager chasm.VisibilityManager
 		Registry          *chasm.Registry
 	}
+
+	ReplicationStreamMessageDirection string
+
+	ReplicationStreamMessage struct {
+		Method        string
+		Direction     ReplicationStreamMessageDirection
+		ClusterName   string
+		TargetAddress string
+		Message       proto.Message
+		IsStreamCall  bool
+	}
+)
+
+const (
+	ReplicationStreamDirectionSend       ReplicationStreamMessageDirection = "send"
+	ReplicationStreamDirectionRecv       ReplicationStreamMessageDirection = "recv"
+	ReplicationStreamDirectionServerSend ReplicationStreamMessageDirection = "server_send"
+	ReplicationStreamDirectionServerRecv ReplicationStreamMessageDirection = "server_recv"
 )
 
 // Test hook keys with their return type and scope.
@@ -42,8 +60,7 @@ var (
 	HistoryTransferTaskInterceptor           = newKey[func(historytasks.Task, func()), namespace.ID]()
 	HistoryDLQTaskDeleteInterceptor          = newKey[func(context.Context, *historyservice.DeleteDLQTasksRequest, func(context.Context, *historyservice.DeleteDLQTasksRequest) (*historyservice.DeleteDLQTasksResponse, error)) (*historyservice.DeleteDLQTasksResponse, error), global]()
 	NamespaceReplicationTaskInterceptor      = newKey[func(context.Context, *replicationspb.NamespaceTaskAttributes, func() error) error, namespace.Name]()
-	ServiceGrpcInterceptors                  = newKey[func(primitives.ServiceName, *[]grpc.UnaryServerInterceptor, *[]grpc.StreamServerInterceptor), global]()
-	ServiceClientDialOptions                 = newKey[func(map[primitives.ServiceName][]grpc.DialOption), global]()
+	ReplicationStreamMessageObserver         = newKey[func(ReplicationStreamMessage), global]()
 	MatchingRawClientCreated                 = newKey[func(primitives.ServiceName, matchingservice.MatchingServiceClient), global]()
 	ChasmRegistryInitializer                 = newKey[func(*chasm.Registry) error, global]()
 	HistoryChasmComponentsCreated            = newKey[func(HistoryChasmComponents), global]()

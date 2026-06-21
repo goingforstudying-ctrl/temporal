@@ -1,7 +1,6 @@
 package testcore
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc"
+	"go.temporal.io/server/common/testing/testhooks"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -100,7 +99,21 @@ func (r *ReplicationStreamRecorder) GetMessages() []CapturedReplicationMessage {
 	return result
 }
 
+func (r *ReplicationStreamRecorder) Observe(message testhooks.ReplicationStreamMessage) {
+	r.recordMessage(
+		message.Method,
+		message.Message,
+		string(message.Direction),
+		message.ClusterName,
+		message.TargetAddress,
+		message.IsStreamCall,
+	)
+}
+
 func (r *ReplicationStreamRecorder) recordMessage(method string, msg proto.Message, direction string, clusterName string, targetAddr string, isStreamCall bool) {
+	if msg == nil {
+		return
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -153,178 +166,4 @@ func (r *ReplicationStreamRecorder) formatCapturedMessage(captured CapturedRepli
 	}
 
 	return string(jsonOutput)
-}
-
-// UnaryInterceptor returns a gRPC unary client interceptor that captures messages
-func (r *ReplicationStreamRecorder) UnaryInterceptor(clusterName string) grpc.UnaryClientInterceptor {
-	return func(
-		ctx context.Context,
-		method string,
-		req, reply any,
-		cc *grpc.ClientConn,
-		invoker grpc.UnaryInvoker,
-		opts ...grpc.CallOption,
-	) error {
-		target := cc.Target()
-
-		// Capture outgoing request if it's a replication-related call
-		if isReplicationMethod(method) {
-			if protoReq, ok := req.(proto.Message); ok {
-				r.recordMessage(method, protoReq, DirectionSend, clusterName, target, false)
-			}
-		}
-
-		err := invoker(ctx, method, req, reply, cc, opts...)
-
-		// Capture incoming response if successful
-		if err == nil && isReplicationMethod(method) {
-			if protoReply, ok := reply.(proto.Message); ok {
-				r.recordMessage(method, protoReply, DirectionRecv, clusterName, target, false)
-			}
-		}
-
-		return err
-	}
-}
-
-// StreamInterceptor returns a gRPC stream client interceptor that captures stream messages
-func (r *ReplicationStreamRecorder) StreamInterceptor(clusterName string) grpc.StreamClientInterceptor {
-	return func(
-		ctx context.Context,
-		desc *grpc.StreamDesc,
-		cc *grpc.ClientConn,
-		method string,
-		streamer grpc.Streamer,
-		opts ...grpc.CallOption,
-	) (grpc.ClientStream, error) {
-		stream, err := streamer(ctx, desc, cc, method, opts...)
-		if err != nil {
-			return nil, err
-		}
-
-		if isReplicationMethod(method) {
-			return &recordingClientStream{
-				ClientStream:  stream,
-				recorder:      r,
-				method:        method,
-				clusterName:   clusterName,
-				targetAddress: cc.Target(),
-			}, nil
-		}
-
-		return stream, nil
-	}
-}
-
-// recordingClientStream wraps a grpc.ClientStream to record messages
-type recordingClientStream struct {
-	grpc.ClientStream
-	recorder      *ReplicationStreamRecorder
-	method        string
-	clusterName   string
-	targetAddress string
-}
-
-func (s *recordingClientStream) SendMsg(m any) error {
-	if msg, ok := m.(proto.Message); ok {
-		// SendMsg means this cluster is SENDING a message (could be request or ack)
-		s.recorder.recordMessage(s.method, msg, DirectionSend, s.clusterName, s.targetAddress, true)
-	}
-	return s.ClientStream.SendMsg(m)
-}
-
-func (s *recordingClientStream) RecvMsg(m any) error {
-	err := s.ClientStream.RecvMsg(m)
-	if err == nil {
-		if msg, ok := m.(proto.Message); ok {
-			// RecvMsg means this cluster is RECEIVING a message (could be request or data)
-			s.recorder.recordMessage(s.method, msg, DirectionRecv, s.clusterName, s.targetAddress, true)
-		}
-	}
-	return err
-}
-
-// UnaryServerInterceptor returns a gRPC unary server interceptor that captures messages
-func (r *ReplicationStreamRecorder) UnaryServerInterceptor(clusterName string) grpc.UnaryServerInterceptor {
-	return func(
-		ctx context.Context,
-		req any,
-		info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler,
-	) (any, error) {
-		// Capture incoming request if it's a replication-related call
-		if isReplicationMethod(info.FullMethod) {
-			if protoReq, ok := req.(proto.Message); ok {
-				r.recordMessage(info.FullMethod, protoReq, DirectionServerRecv, clusterName, "server", false)
-			}
-		}
-
-		resp, err := handler(ctx, req)
-
-		// Capture outgoing response if successful
-		if err == nil && isReplicationMethod(info.FullMethod) {
-			if protoResp, ok := resp.(proto.Message); ok {
-				r.recordMessage(info.FullMethod, protoResp, DirectionServerSend, clusterName, "server", false)
-			}
-		}
-
-		return resp, err
-	}
-}
-
-// StreamServerInterceptor returns a gRPC stream server interceptor that captures stream messages
-func (r *ReplicationStreamRecorder) StreamServerInterceptor(clusterName string) grpc.StreamServerInterceptor {
-	return func(
-		srv any,
-		ss grpc.ServerStream,
-		info *grpc.StreamServerInfo,
-		handler grpc.StreamHandler,
-	) error {
-		if isReplicationMethod(info.FullMethod) {
-			wrappedStream := &recordingServerStream{
-				ServerStream: ss,
-				recorder:     r,
-				method:       info.FullMethod,
-				clusterName:  clusterName,
-			}
-			return handler(srv, wrappedStream)
-		}
-
-		return handler(srv, ss)
-	}
-}
-
-// recordingServerStream wraps a grpc.ServerStream to record messages
-type recordingServerStream struct {
-	grpc.ServerStream
-	recorder    *ReplicationStreamRecorder
-	method      string
-	clusterName string
-}
-
-func (s *recordingServerStream) SendMsg(m any) error {
-	if msg, ok := m.(proto.Message); ok {
-		// Server SendMsg means this server is SENDING a message to the client
-		s.recorder.recordMessage(s.method, msg, DirectionServerSend, s.clusterName, "server", true)
-	}
-	return s.ServerStream.SendMsg(m)
-}
-
-func (s *recordingServerStream) RecvMsg(m any) error {
-	err := s.ServerStream.RecvMsg(m)
-	if err == nil {
-		if msg, ok := m.(proto.Message); ok {
-			// Server RecvMsg means this server is RECEIVING a message from the client
-			s.recorder.recordMessage(s.method, msg, DirectionServerRecv, s.clusterName, "server", true)
-		}
-	}
-	return err
-}
-
-func isReplicationMethod(method string) bool {
-	// Capture StreamWorkflowReplicationMessages from both history and admin services
-	// - Sender (active) uses history service to respond to receiver
-	// - Receiver (standby) uses admin service to call sender
-	return method == "/temporal.server.api.historyservice.v1.HistoryService/StreamWorkflowReplicationMessages" ||
-		method == "/temporal.server.api.adminservice.v1.AdminService/StreamWorkflowReplicationMessages"
 }
