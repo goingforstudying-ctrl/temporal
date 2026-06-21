@@ -261,10 +261,10 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 		}
 	}
 
-	// check that when static hosts are defined, they are defined for all required hosts
+	// check that when static hosts are defined, they are defined for all requested hosts
 	if len(so.hostsByService) > 0 {
-		for _, service := range DefaultServices {
-			hosts := so.hostsByService[primitives.ServiceName(service)]
+		for service := range so.serviceNames {
+			hosts := so.hostsByService[service]
 			if len(hosts.All) == 0 {
 				return serverOptionsProvider{}, fmt.Errorf("%w: %v", missingServiceInStaticHosts, service)
 			}
