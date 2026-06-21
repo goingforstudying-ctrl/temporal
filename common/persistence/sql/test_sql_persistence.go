@@ -83,6 +83,7 @@ func (s *TestCluster) SetupTestDatabase() {
 	}
 	s.LoadSchema(path.Join(schemaDir, "temporal", "schema.sql"))
 	s.LoadSchema(path.Join(schemaDir, "visibility", "schema.sql"))
+	s.LoadSchemaVersion()
 }
 
 // Config returns the persistence config for connecting to this test cluster
@@ -219,4 +220,39 @@ func (s *TestCluster) LoadSchema(schemaFile string) {
 		}
 	}
 	s.logger.Info("loaded schema")
+}
+
+// LoadSchemaVersion writes the schema metadata expected by server startup validation.
+func (s *TestCluster) LoadSchemaVersion() {
+	var db sqlplugin.AdminDB
+	var err error
+	err = backoff.ThrottleRetry(
+		func() error {
+			db, err = NewSQLAdminDB(sqlplugin.DbKindMain, &s.cfg, resolver.NewNoopResolver(), log.NewTestLogger(), metrics.NoopMetricsHandler)
+			return err
+		},
+		backoff.NewExponentialRetryPolicy(time.Second).WithExpirationInterval(time.Minute),
+		nil,
+	)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	expectedVersion := db.ExpectedVersion()
+	if err = db.CreateSchemaVersionTables(); err != nil {
+		s.logger.Fatal("CreateSchemaVersionTables", tag.Error(err))
+	}
+	if err = db.UpdateSchemaVersion(s.cfg.DatabaseName, expectedVersion, expectedVersion); err != nil {
+		s.logger.Fatal("UpdateSchemaVersion", tag.Error(err))
+	}
+	if err = db.WriteSchemaUpdateLog("0", expectedVersion, "", "initial version"); err != nil {
+		s.logger.Fatal("WriteSchemaUpdateLog", tag.Error(err))
+	}
+	s.logger.Info("loaded schema version", tag.String("version", expectedVersion))
 }

@@ -17,6 +17,7 @@ import (
 	commongocql "go.temporal.io/server/common/persistence/nosql/nosqlplugin/cassandra/gocql"
 	"go.temporal.io/server/common/primitives"
 	"go.temporal.io/server/common/resolver"
+	cassandraschema "go.temporal.io/server/schema/cassandra"
 	"go.temporal.io/server/temporal/environment"
 	"go.temporal.io/server/tests/testutils"
 )
@@ -93,6 +94,7 @@ func (s *TestCluster) SetupTestDatabase() {
 	}
 
 	s.LoadSchema(path.Join(schemaDir, "temporal", "schema.cql"))
+	s.LoadSchemaVersion()
 }
 
 // TearDownTestDatabase from PersistenceTestCluster interface
@@ -179,6 +181,42 @@ func (s *TestCluster) LoadSchema(schemaFile string) {
 		}
 	}
 	s.logger.Info("loaded schema")
+}
+
+// LoadSchemaVersion writes the schema metadata expected by server startup validation.
+func (s *TestCluster) LoadSchemaVersion() {
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS schema_version(keyspace_name text PRIMARY KEY, creation_time timestamp, curr_version text, min_compatible_version text);`,
+		`CREATE TABLE IF NOT EXISTS schema_update_history(year int, month int, update_time timestamp, description text, manifest_md5 text, new_version text, old_version text, PRIMARY KEY ((year, month), update_time));`,
+	} {
+		if err := s.session.Query(stmt).Exec(); err != nil {
+			s.logger.Fatal("LoadSchemaVersion", tag.Error(err))
+		}
+	}
+
+	now := time.Now().UTC()
+	if err := s.session.Query(
+		`INSERT into schema_version(keyspace_name, creation_time, curr_version, min_compatible_version) VALUES (?,?,?,?)`,
+		s.keyspace,
+		now,
+		cassandraschema.Version,
+		cassandraschema.Version,
+	).Exec(); err != nil {
+		s.logger.Fatal("LoadSchemaVersion", tag.Error(err))
+	}
+	if err := s.session.Query(
+		`INSERT into schema_update_history(year, month, update_time, old_version, new_version, manifest_md5, description) VALUES(?,?,?,?,?,?,?)`,
+		now.Year(),
+		int(now.Month()),
+		now,
+		"0",
+		cassandraschema.Version,
+		"",
+		"initial version",
+	).Exec(); err != nil {
+		s.logger.Fatal("LoadSchemaVersion", tag.Error(err))
+	}
+	s.logger.Info("loaded schema version", tag.String("version", cassandraschema.Version))
 }
 
 func (s *TestCluster) GetSession() commongocql.Session {
