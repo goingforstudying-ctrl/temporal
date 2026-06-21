@@ -5,12 +5,10 @@ import (
 	"time"
 
 	"go.temporal.io/server/api/historyservice/v1"
-	"go.temporal.io/server/api/matchingservice/v1"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	replicationspb "go.temporal.io/server/api/replication/v1"
 	"go.temporal.io/server/chasm"
 	"go.temporal.io/server/common/namespace"
-	"go.temporal.io/server/common/primitives"
 	historytasks "go.temporal.io/server/service/history/tasks"
 	"google.golang.org/protobuf/proto"
 )
@@ -68,7 +66,6 @@ var (
 	NamespaceReplicationTaskInterceptor      = newKey[func(context.Context, *replicationspb.NamespaceTaskAttributes, func() error) error, namespace.Name]()
 	HistoryTasksWrittenObserver              = newKey[func(HistoryTasksWritten), global]()
 	ReplicationStreamMessageObserver         = newKey[func(ReplicationStreamMessage), global]()
-	MatchingRawClientCreated                 = newKey[func(primitives.ServiceName, matchingservice.MatchingServiceClient), global]()
 	HistoryChasmComponentsCreated            = newKey[func(HistoryChasmComponents), global]()
 )
 

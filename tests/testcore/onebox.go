@@ -139,6 +139,9 @@ func newTemporal(t *testing.T, params *TemporalParams) *TemporalImpl {
 		impl.logger,
 		impl.hostsByProtocolByService[grpcProtocol],
 		impl.tlsConfigProvider,
+		dynamicconfig.NewCollection(impl.dcClient, impl.logger),
+		impl.testHooks,
+		impl.GetMetricsHandler(),
 	)
 	_ = testhooks.Set(
 		impl.testHooks,
@@ -319,17 +322,6 @@ func (c *TemporalImpl) installHostTestHooks(
 	addCleanup := func(cleanup func()) {
 		cleanups = append(cleanups, cleanup)
 	}
-
-	addCleanup(testhooks.Set(
-		c.testHooks,
-		testhooks.MatchingRawClientCreated,
-		func(name primitives.ServiceName, client matchingservice.MatchingServiceClient) {
-			if name == primitives.FrontendService && c.clients.matching.client == nil {
-				c.clients.matching.client = client
-			}
-		},
-		testhooks.GlobalScope,
-	))
 
 	switch serviceName {
 	case primitives.HistoryService:

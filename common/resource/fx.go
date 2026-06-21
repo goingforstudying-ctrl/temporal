@@ -328,17 +328,12 @@ func HistoryClientProvider(historyRawClient HistoryRawClient) HistoryClient {
 }
 
 func MatchingRawClientProvider(
-	serviceName primitives.ServiceName,
 	clientBean client.Bean,
 	namespaceRegistry namespace.Registry,
-	testHooks testhooks.TestHooks,
 ) (MatchingRawClient, error) {
 	client, err := clientBean.GetMatchingClient(namespaceRegistry.GetNamespaceName)
 	if err != nil {
 		return nil, err
-	}
-	if hook, ok := testhooks.Get(testHooks, testhooks.MatchingRawClientCreated, testhooks.GlobalScope); ok {
-		hook(serviceName, client)
 	}
 	return client, nil
 }
