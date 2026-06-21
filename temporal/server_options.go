@@ -64,6 +64,7 @@ type (
 		tokenProvider                   auth.TokenProvider
 		testHooks                       testhooks.TestHooks
 		chasmLibraries                  []chasm.Library
+		disablePersistenceVersionCheck  bool
 	}
 )
 

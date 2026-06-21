@@ -216,6 +216,20 @@ func (c *TemporalImpl) FrontendHTTPAddress() string {
 	return addrs[rand.Intn(len(addrs))]
 }
 
+func (c *TemporalImpl) frontendHTTPAddressForHost(serviceName primitives.ServiceName, host string) string {
+	httpAddrs := c.hostsByProtocolByService[httpProtocol][primitives.FrontendService].All
+	if serviceName != primitives.FrontendService {
+		return httpAddrs[0]
+	}
+	grpcAddrs := c.hostsByProtocolByService[grpcProtocol][primitives.FrontendService].All
+	for i, addr := range grpcAddrs {
+		if addr == host && i < len(httpAddrs) {
+			return httpAddrs[i]
+		}
+	}
+	return httpAddrs[0]
+}
+
 func (c *TemporalImpl) FrontendGRPCAddress() string {
 	return c.hostsByProtocolByService[grpcProtocol][primitives.FrontendService].All[0]
 }
@@ -304,6 +318,7 @@ func (c *TemporalImpl) serverOptionsForHost(
 		temporal.WithPersistenceServiceResolver(resolver.NewNoopResolver()),
 		temporal.WithCustomMetricsHandler(c.GetMetricsHandler()),
 		temporal.WithChasmLibraries(chasmtests.Library),
+		temporal.WithPersistenceVersionCheckDisabled(),
 	}
 	if c.tlsConfigProvider != nil {
 		options = append(options, temporal.WithTLSConfigFactory(c.tlsConfigProvider))
@@ -357,22 +372,34 @@ func (c *TemporalImpl) configForHost(serviceName primitives.ServiceName, host st
 		BindOnIP: bindIP,
 		GRPCPort: int(port),
 	}
+	frontendGRPCAddress := c.hostsByProtocolByService[grpcProtocol][primitives.FrontendService].All[0]
 	if serviceName == primitives.FrontendService {
-		// Set HTTP port and a test HTTP forwarded header
-		_, httpPort := mustSplitHostPort(c.FrontendHTTPAddress())
-		rpcConfig.HTTPPort = int(httpPort)
-		rpcConfig.HTTPAdditionalForwardedHeaders = []string{
+		frontendGRPCAddress = host
+	}
+	frontendBindIP, frontendGRPCPort := mustSplitHostPort(frontendGRPCAddress)
+	_, frontendHTTPPort := mustSplitHostPort(c.frontendHTTPAddressForHost(serviceName, host))
+	// Set HTTP port and a test HTTP forwarded header
+	frontendRPCConfig := config.RPC{
+		BindOnIP: frontendBindIP,
+		GRPCPort: int(frontendGRPCPort),
+		HTTPPort: int(frontendHTTPPort),
+		HTTPAdditionalForwardedHeaders: []string{
 			"this-header-forwarded",
 			"this-header-prefix-forwarded-*",
-		}
+		},
 	}
 
 	cfg := *c.config
 	cfg.Persistence = copyPersistenceConfig(c.config.Persistence)
 	cfg.Services = map[string]config.Service{
-		string(serviceName): {
-			RPC: rpcConfig,
+		string(primitives.FrontendService): {
+			RPC: frontendRPCConfig,
 		},
+	}
+	if serviceName != primitives.FrontendService {
+		cfg.Services[string(serviceName)] = config.Service{
+			RPC: rpcConfig,
+		}
 	}
 	return &cfg
 }

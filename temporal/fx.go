@@ -185,9 +185,11 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 	}
 
 	persistenceConfig := so.config.Persistence
-	err = verifyPersistenceCompatibleVersion(persistenceConfig, so.persistenceServiceResolver, logger)
-	if err != nil {
-		return serverOptionsProvider{}, err
+	if !so.disablePersistenceVersionCheck {
+		err = verifyPersistenceCompatibleVersion(persistenceConfig, so.persistenceServiceResolver, logger)
+		if err != nil {
+			return serverOptionsProvider{}, err
+		}
 	}
 
 	stopChan := make(chan any)
