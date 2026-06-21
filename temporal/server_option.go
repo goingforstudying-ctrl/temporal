@@ -63,7 +63,7 @@ func ForServices(names []string) ServerOption {
 }
 
 // WithStaticHosts disables dynamic service membership and resolves service hosts statically.
-// At least one host must be provided for all required services (frontend, history, matching, worker).
+// At least one host must be provided for all services passed to ForServices.
 // And a self-address must be provided for all services passed to ForServices.
 func WithStaticHosts(hostsByService map[primitives.ServiceName]static.Hosts) ServerOption {
 	return applyFunc(func(s *serverOptions) {
