@@ -9,9 +9,7 @@ import (
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	replicationspb "go.temporal.io/server/api/replication/v1"
 	"go.temporal.io/server/chasm"
-	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/namespace"
-	"go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/primitives"
 	historytasks "go.temporal.io/server/service/history/tasks"
 	"google.golang.org/protobuf/proto"
@@ -33,6 +31,14 @@ type (
 		TargetAddress string
 		Message       proto.Message
 		IsStreamCall  bool
+	}
+
+	HistoryTasksWritten struct {
+		ShardID     int32
+		RangeID     int64
+		NamespaceID string
+		WorkflowID  string
+		Tasks       map[historytasks.Category][]historytasks.Task
 	}
 )
 
@@ -60,11 +66,11 @@ var (
 	HistoryTransferTaskInterceptor           = newKey[func(historytasks.Task, func()), namespace.ID]()
 	HistoryDLQTaskDeleteInterceptor          = newKey[func(context.Context, *historyservice.DeleteDLQTasksRequest, func(context.Context, *historyservice.DeleteDLQTasksRequest) (*historyservice.DeleteDLQTasksResponse, error)) (*historyservice.DeleteDLQTasksResponse, error), global]()
 	NamespaceReplicationTaskInterceptor      = newKey[func(context.Context, *replicationspb.NamespaceTaskAttributes, func() error) error, namespace.Name]()
+	HistoryTasksWrittenObserver              = newKey[func(HistoryTasksWritten), global]()
 	ReplicationStreamMessageObserver         = newKey[func(ReplicationStreamMessage), global]()
 	MatchingRawClientCreated                 = newKey[func(primitives.ServiceName, matchingservice.MatchingServiceClient), global]()
 	ChasmRegistryInitializer                 = newKey[func(*chasm.Registry) error, global]()
 	HistoryChasmComponentsCreated            = newKey[func(HistoryChasmComponents), global]()
-	PersistenceExecutionManagerWrapper       = newKey[func(persistence.ExecutionManager, log.Logger) persistence.ExecutionManager, global]()
 )
 
 // keyID is a unique identifier for a key, used as a map key.

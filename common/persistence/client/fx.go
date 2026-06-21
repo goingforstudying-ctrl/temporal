@@ -224,7 +224,6 @@ type managerProviderParams struct {
 	Factory   Factory
 	Lifecycle fx.Lifecycle
 	TestHooks testhooks.TestHooks `optional:"true"`
-	Logger    log.Logger
 }
 
 func managerProvider[T persistence.Closeable](newManagerFn func(Factory) (T, error)) func(managerProviderParams) (T, error) {
@@ -240,8 +239,8 @@ func managerProvider[T persistence.Closeable](newManagerFn func(Factory) (T, err
 			return nilT, err
 		}
 		if executionManager, ok := any(manager).(persistence.ExecutionManager); ok {
-			if hook, ok := testhooks.Get(params.TestHooks, testhooks.PersistenceExecutionManagerWrapper, testhooks.GlobalScope); ok {
-				manager = any(hook(executionManager, params.Logger)).(T)
+			if hook, ok := testhooks.Get(params.TestHooks, testhooks.HistoryTasksWrittenObserver, testhooks.GlobalScope); ok {
+				manager = any(newHistoryTasksWrittenObserver(executionManager, hook)).(T)
 			}
 		}
 		params.Lifecycle.Append(fx.StopHook(manager.Close))

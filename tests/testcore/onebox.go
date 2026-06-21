@@ -33,7 +33,6 @@ import (
 	"go.temporal.io/server/common/membership/static"
 	"go.temporal.io/server/common/metrics"
 	"go.temporal.io/server/common/metrics/metricstest"
-	"go.temporal.io/server/common/persistence"
 	persistenceClient "go.temporal.io/server/common/persistence/client"
 	"go.temporal.io/server/common/persistence/visibility"
 	"go.temporal.io/server/common/primitives"
@@ -71,6 +70,7 @@ type (
 		callbackLock              sync.RWMutex // Must be used for above callbacks
 		chasmRegistry             *chasm.Registry
 		replicationStreamRecorder *ReplicationStreamRecorder
+		taskQueueRecorderOnce     sync.Once
 		taskQueueRecorder         *TaskQueueRecorder
 
 		servers []*temporal.ServerFx
@@ -352,13 +352,8 @@ func (c *TemporalImpl) installHostTestHooks(
 		))
 		addCleanup(testhooks.Set(
 			c.testHooks,
-			testhooks.PersistenceExecutionManagerWrapper,
-			func(base persistence.ExecutionManager, logger log.Logger) persistence.ExecutionManager {
-				// Wrap ExecutionManager with recorder to capture task writes
-				// This wraps the FINAL ExecutionManager after all FX processing (metrics, retries, etc.)
-				c.taskQueueRecorder = NewTaskQueueRecorder(base, logger)
-				return c.taskQueueRecorder
-			},
+			testhooks.HistoryTasksWrittenObserver,
+			c.getTaskQueueRecorder().Observe,
 			testhooks.GlobalScope,
 		))
 	default:
@@ -398,6 +393,13 @@ func (c *TemporalImpl) configForHost(serviceName primitives.ServiceName, host st
 }
 
 func (c *TemporalImpl) GetTaskQueueRecorder() *TaskQueueRecorder {
+	return c.getTaskQueueRecorder()
+}
+
+func (c *TemporalImpl) getTaskQueueRecorder() *TaskQueueRecorder {
+	c.taskQueueRecorderOnce.Do(func() {
+		c.taskQueueRecorder = NewTaskQueueRecorder(c.logger)
+	})
 	return c.taskQueueRecorder
 }
 

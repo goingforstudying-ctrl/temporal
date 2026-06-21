@@ -491,9 +491,6 @@ func (tc *TestCluster) SchedulerClient() schedulerpb.SchedulerServiceClient {
 
 // ExecutionManager returns an execution manager factory from the test cluster
 func (tc *TestCluster) ExecutionManager() persistence.ExecutionManager {
-	if tc.host.taskQueueRecorder != nil {
-		return tc.host.taskQueueRecorder
-	}
 	return tc.testBase.ExecutionManager
 }
 
