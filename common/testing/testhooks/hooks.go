@@ -44,7 +44,6 @@ var (
 	NamespaceReplicationTaskInterceptor      = newKey[func(context.Context, *replicationspb.NamespaceTaskAttributes, func() error) error, namespace.Name]()
 	ServiceGrpcInterceptors                  = newKey[func(primitives.ServiceName, *[]grpc.UnaryServerInterceptor, *[]grpc.StreamServerInterceptor), global]()
 	ServiceClientDialOptions                 = newKey[func(map[primitives.ServiceName][]grpc.DialOption), global]()
-	NamespaceRegistryCreated                 = newKey[func(primitives.ServiceName, namespace.Registry), global]()
 	MatchingRawClientCreated                 = newKey[func(primitives.ServiceName, matchingservice.MatchingServiceClient), global]()
 	ChasmRegistryInitializer                 = newKey[func(*chasm.Registry) error, global]()
 	HistoryChasmComponentsCreated            = newKey[func(HistoryChasmComponents), global]()

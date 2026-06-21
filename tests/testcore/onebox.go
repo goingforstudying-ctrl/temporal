@@ -33,7 +33,6 @@ import (
 	"go.temporal.io/server/common/membership/static"
 	"go.temporal.io/server/common/metrics"
 	"go.temporal.io/server/common/metrics/metricstest"
-	"go.temporal.io/server/common/namespace"
 	"go.temporal.io/server/common/persistence"
 	persistenceClient "go.temporal.io/server/common/persistence/client"
 	"go.temporal.io/server/common/persistence/visibility"
@@ -50,10 +49,8 @@ import (
 
 type (
 	TemporalImpl struct {
-		// This is used to wait for namespace registries to have noticed a change in some xdc tests.
-		namespaceRegistries []namespace.Registry
-		chasmEngine         chasm.Engine
-		chasmVisibilityMgr  chasm.VisibilityManager
+		chasmEngine        chasm.Engine
+		chasmVisibilityMgr chasm.VisibilityManager
 
 		clients clients
 
@@ -247,10 +244,6 @@ func (c *TemporalImpl) DcClient() *dynamicconfig.MemoryClient {
 	return c.dcClient
 }
 
-func (c *TemporalImpl) NamespaceRegistries() []namespace.Registry {
-	return c.namespaceRegistries
-}
-
 func (c *TemporalImpl) ChasmEngine() (chasm.Engine, error) {
 	if numHistoryHosts := len(c.hostsByProtocolByService[grpcProtocol][primitives.HistoryService].All); numHistoryHosts != 1 {
 		return nil, fmt.Errorf("expected exactly one host for chasm engine, got %d", numHistoryHosts)
@@ -326,16 +319,6 @@ func (c *TemporalImpl) installHostTestHooks(
 		cleanups = append(cleanups, cleanup)
 	}
 
-	addCleanup(testhooks.Set(
-		c.testHooks,
-		testhooks.NamespaceRegistryCreated,
-		func(name primitives.ServiceName, registry namespace.Registry) {
-			if name == serviceName {
-				c.namespaceRegistries = append(c.namespaceRegistries, registry)
-			}
-		},
-		testhooks.GlobalScope,
-	))
 	addCleanup(testhooks.Set(
 		c.testHooks,
 		testhooks.ChasmRegistryInitializer,

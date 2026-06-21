@@ -139,6 +139,10 @@ func (c *clients) newConn(serviceName primitives.ServiceName) (*grpc.ClientConn,
 	if err != nil {
 		return nil, err
 	}
+	return c.newConnToAddress(serviceName, address)
+}
+
+func (c *clients) newConnToAddress(serviceName primitives.ServiceName, address string) (*grpc.ClientConn, error) {
 	tlsConfig, err := c.tlsConfig(serviceName)
 	if err != nil {
 		return nil, err

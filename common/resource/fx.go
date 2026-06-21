@@ -233,7 +233,6 @@ type NamespaceRegistryParams struct {
 	DynamicCollection          *dynamicconfig.Collection
 	ReplicationResolverFactory namespace.ReplicationResolverFactory
 	NamespaceStateChangedFn    namespace.NamespaceStateChangedFn
-	TestHooks                  testhooks.TestHooks `optional:"true"`
 }
 
 func NamespaceRegistryProvider(params NamespaceRegistryParams) namespace.Registry {
@@ -248,9 +247,6 @@ func NamespaceRegistryProvider(params NamespaceRegistryParams) namespace.Registr
 		params.ReplicationResolverFactory,
 		params.NamespaceStateChangedFn,
 	)
-	if hook, ok := testhooks.Get(params.TestHooks, testhooks.NamespaceRegistryCreated, testhooks.GlobalScope); ok {
-		hook(params.ServiceName, registry)
-	}
 	return registry
 }
 
