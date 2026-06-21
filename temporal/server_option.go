@@ -3,6 +3,7 @@ package temporal
 import (
 	"net/http"
 
+	"go.temporal.io/server/chasm"
 	"go.temporal.io/server/client"
 	"go.temporal.io/server/common/archiver/provider"
 	"go.temporal.io/server/common/authorization"
@@ -210,6 +211,14 @@ func WithTokenProvider(tp auth.TokenProvider) ServerOption {
 func WithTestHooks(testHooks testhooks.TestHooks) ServerOption {
 	return applyFunc(func(s *serverOptions) {
 		s.testHooks = testHooks
+	})
+}
+
+// WithChasmLibraries registers additional CHASM libraries in each service graph.
+// NOTE: this option is experimental and may be changed or removed in future release.
+func WithChasmLibraries(libraries ...chasm.Library) ServerOption {
+	return applyFunc(func(s *serverOptions) {
+		s.chasmLibraries = append(s.chasmLibraries, libraries...)
 	})
 }
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 
+	"go.temporal.io/server/chasm"
 	"go.temporal.io/server/client"
 	"go.temporal.io/server/common/archiver/provider"
 	"go.temporal.io/server/common/authorization"
@@ -62,6 +63,7 @@ type (
 		metricHandler                   metrics.Handler
 		tokenProvider                   auth.TokenProvider
 		testHooks                       testhooks.TestHooks
+		chasmLibraries                  []chasm.Library
 	}
 )
 

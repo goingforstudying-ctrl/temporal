@@ -127,6 +127,7 @@ type (
 		EsClient              esclient.Client
 		MetricsHandler        metrics.Handler
 		TestHooks             testhooks.TestHooks
+		ChasmLibraries        []chasm.Library
 	}
 )
 
@@ -322,6 +323,7 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 		EsClient:              esClient,
 		MetricsHandler:        metricHandler,
 		TestHooks:             testHooks,
+		ChasmLibraries:        so.chasmLibraries,
 	}, nil
 }
 
@@ -389,6 +391,7 @@ type (
 		StaticServiceHosts              map[primitives.ServiceName]static.Hosts `optional:"true"`
 		TaskCategoryRegistry            tasks.TaskCategoryRegistry
 		TestHooks                       testhooks.TestHooks
+		ChasmLibraries                  []chasm.Library
 	}
 )
 
@@ -470,6 +473,9 @@ func (params ServiceProviderParamsCommon) GetCommonServiceOptions(serviceName pr
 			func() tasks.TaskCategoryRegistry {
 				return params.TaskCategoryRegistry
 			},
+			func() []chasm.Library {
+				return params.ChasmLibraries
+			},
 		),
 		fx.Decorate(func() testhooks.TestHooks {
 			return params.TestHooks
@@ -479,20 +485,25 @@ func (params ServiceProviderParamsCommon) GetCommonServiceOptions(serviceName pr
 		membershipModule,
 		FxLogAdapter,
 		chasm.Module,
-		fx.Invoke(ChasmRegistryInitializerHook),
+		fx.Invoke(ChasmLibrariesInitializer),
 	)
 }
 
-type chasmRegistryInitializerHookParams struct {
+type chasmLibrariesInitializerParams struct {
 	fx.In
 
 	Registry  *chasm.Registry
-	TestHooks testhooks.TestHooks
+	Libraries []chasm.Library
 }
 
-func ChasmRegistryInitializerHook(params chasmRegistryInitializerHookParams) error {
-	if hook, ok := testhooks.Get(params.TestHooks, testhooks.ChasmRegistryInitializer, testhooks.GlobalScope); ok {
-		return hook(params.Registry)
+func ChasmLibrariesInitializer(params chasmLibrariesInitializerParams) error {
+	for _, library := range params.Libraries {
+		if library == nil {
+			return errors.New("cannot register nil CHASM library")
+		}
+		if err := params.Registry.Register(library); err != nil {
+			return fmt.Errorf("register CHASM library %q: %w", library.Name(), err)
+		}
 	}
 	return nil
 }

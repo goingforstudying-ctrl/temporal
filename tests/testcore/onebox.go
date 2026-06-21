@@ -300,6 +300,7 @@ func (c *TemporalImpl) serverOptionsForHost(
 		temporal.WithSearchAttributesMapper(nil),
 		temporal.WithPersistenceServiceResolver(resolver.NewNoopResolver()),
 		temporal.WithCustomMetricsHandler(c.GetMetricsHandler()),
+		temporal.WithChasmLibraries(chasmtests.Library),
 	}
 	if c.tlsConfigProvider != nil {
 		options = append(options, temporal.WithTLSConfigFactory(c.tlsConfigProvider))
@@ -319,14 +320,6 @@ func (c *TemporalImpl) installHostTestHooks(
 		cleanups = append(cleanups, cleanup)
 	}
 
-	addCleanup(testhooks.Set(
-		c.testHooks,
-		testhooks.ChasmRegistryInitializer,
-		func(registry *chasm.Registry) error {
-			return registry.Register(chasmtests.Library)
-		},
-		testhooks.GlobalScope,
-	))
 	addCleanup(testhooks.Set(
 		c.testHooks,
 		testhooks.MatchingRawClientCreated,

@@ -69,7 +69,6 @@ var (
 	HistoryTasksWrittenObserver              = newKey[func(HistoryTasksWritten), global]()
 	ReplicationStreamMessageObserver         = newKey[func(ReplicationStreamMessage), global]()
 	MatchingRawClientCreated                 = newKey[func(primitives.ServiceName, matchingservice.MatchingServiceClient), global]()
-	ChasmRegistryInitializer                 = newKey[func(*chasm.Registry) error, global]()
 	HistoryChasmComponentsCreated            = newKey[func(HistoryChasmComponents), global]()
 )
 
