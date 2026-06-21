@@ -318,7 +318,6 @@ func (c *TemporalImpl) serverOptionsForHost(
 		temporal.WithPersistenceServiceResolver(resolver.NewNoopResolver()),
 		temporal.WithCustomMetricsHandler(c.GetMetricsHandler()),
 		temporal.WithChasmLibraries(chasmtests.Library),
-		temporal.WithPersistenceVersionCheckDisabled(),
 	}
 	if c.tlsConfigProvider != nil {
 		options = append(options, temporal.WithTLSConfigFactory(c.tlsConfigProvider))

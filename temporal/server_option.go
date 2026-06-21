@@ -222,15 +222,6 @@ func WithChasmLibraries(libraries ...chasm.Library) ServerOption {
 	})
 }
 
-// WithPersistenceVersionCheckDisabled disables startup-time persistence schema
-// compatibility checks. This should only be used by callers that own schema
-// setup externally and perform equivalent validation before server startup.
-func WithPersistenceVersionCheckDisabled() ServerOption {
-	return applyFunc(func(s *serverOptions) {
-		s.disablePersistenceVersionCheck = true
-	})
-}
-
 // WithCustomerMetricsProvider sets a custom implementation of the metrics.MetricsHandler interface
 // metrics.MetricsHandler is the base interface for publishing metric events
 func WithCustomMetricsHandler(provider metrics.Handler) ServerOption {
