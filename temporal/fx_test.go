@@ -12,11 +12,8 @@ import (
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/membership/static"
-	"go.temporal.io/server/common/metrics"
 	"go.temporal.io/server/common/persistence"
-	"go.temporal.io/server/common/persistence/serialization"
 	"go.temporal.io/server/common/primitives"
-	"go.temporal.io/server/common/resolver"
 	"go.temporal.io/server/service/history/tasks"
 	"go.temporal.io/server/tests/testutils"
 	"go.uber.org/mock/gomock"
@@ -124,7 +121,6 @@ func TestServerOptionsProviderStaticHostsOnlyRequiresRequestedServices(t *testin
 	_, err := ServerOptionsProvider([]ServerOption{
 		ForServices([]string{string(primitives.FrontendService)}),
 		WithConfig(cfg),
-		WithCustomDataStoreFactory(noopAbstractDataStoreFactory{}),
 		WithStaticHosts(map[primitives.ServiceName]static.Hosts{
 			primitives.FrontendService: static.SingleLocalHost("127.0.0.1:7000"),
 		}),
@@ -142,7 +138,6 @@ func TestServerOptionsProviderStaticHostsRequiresEachRequestedService(t *testing
 			string(primitives.HistoryService),
 		}),
 		WithConfig(cfg),
-		WithCustomDataStoreFactory(noopAbstractDataStoreFactory{}),
 		WithStaticHosts(map[primitives.ServiceName]static.Hosts{
 			primitives.FrontendService: static.SingleLocalHost("127.0.0.1:7000"),
 		}),
@@ -150,30 +145,6 @@ func TestServerOptionsProviderStaticHostsRequiresEachRequestedService(t *testing
 	})
 	require.ErrorIs(t, err, missingServiceInStaticHosts)
 	require.ErrorContains(t, err, string(primitives.HistoryService))
-}
-
-func TestServerOptionsProviderCustomDataStoreFactorySkipsBuiltInSchemaCheck(t *testing.T) {
-	cfg := testServerConfig(config.DataStore{
-		SQL: &config.SQL{
-			PluginName:      "not-registered",
-			DatabaseName:    "temporal",
-			ConnectAddr:     "127.0.0.1:1",
-			ConnectProtocol: "tcp",
-		},
-	})
-
-	_, err := ServerOptionsProvider([]ServerOption{
-		WithConfig(cfg),
-		WithLogger(log.NewNoopLogger()),
-	})
-	require.ErrorContains(t, err, "unknown plugin")
-
-	_, err = ServerOptionsProvider([]ServerOption{
-		WithConfig(cfg),
-		WithCustomDataStoreFactory(noopAbstractDataStoreFactory{}),
-		WithLogger(log.NewNoopLogger()),
-	})
-	require.NoError(t, err)
 }
 
 func TestUpdateIndexSearchAttributes(t *testing.T) {
@@ -465,19 +436,6 @@ func testCustomDataStore(name string) config.DataStore {
 			IndexName: name,
 		},
 	}
-}
-
-type noopAbstractDataStoreFactory struct{}
-
-func (noopAbstractDataStoreFactory) NewFactory(
-	config.CustomDatastoreConfig,
-	resolver.ServiceResolver,
-	string,
-	log.Logger,
-	metrics.Handler,
-	serialization.Serializer,
-) persistence.DataStoreFactory {
-	return nil
 }
 
 func TestTaskCategoryRegistryProvider(t *testing.T) {

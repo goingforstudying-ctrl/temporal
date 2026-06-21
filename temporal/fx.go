@@ -182,13 +182,9 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 	}
 
 	persistenceConfig := so.config.Persistence
-	// Custom persistence factories own their own schema/version compatibility
-	// contract; the built-in SQL/Cassandra checker only applies to built-in stores.
-	if so.customDataStoreFactory == nil {
-		err = verifyPersistenceCompatibleVersion(persistenceConfig, so.persistenceServiceResolver, logger)
-		if err != nil {
-			return serverOptionsProvider{}, err
-		}
+	err = verifyPersistenceCompatibleVersion(persistenceConfig, so.persistenceServiceResolver, logger)
+	if err != nil {
+		return serverOptionsProvider{}, err
 	}
 
 	stopChan := make(chan any)
