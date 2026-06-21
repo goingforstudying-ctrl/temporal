@@ -432,7 +432,6 @@ func (c *TemporalImpl) startHistory() {
 
 	if c.enableTaskQueueRecorder {
 		c.taskQueueRecorder = NewTaskQueueRecorder(c.logger)
-		testhooks.NewHook(testhooks.HistoryTasksWritten, c.taskQueueRecorder.Record).Apply(c.testHooks, testhooks.GlobalScope)
 	}
 
 	for _, host := range c.hostsByProtocolByService[grpcProtocol][serviceName].All {
@@ -452,7 +451,6 @@ func (c *TemporalImpl) startHistory() {
 			fx.Provide(func() log.Logger { return logger }),
 			fx.Provide(func() log.ThrottledLogger { return logger }),
 			fx.Provide(c.newRPCFactory),
-			fx.Provide(c.GetGrpcClientInterceptor),
 			fx.Decorate(func(base []grpc.UnaryServerInterceptor) []grpc.UnaryServerInterceptor {
 				if c.replicationStreamRecorder != nil {
 					return append(base, c.replicationStreamRecorder.UnaryServerInterceptor(c.clusterMetadataConfig.CurrentClusterName))

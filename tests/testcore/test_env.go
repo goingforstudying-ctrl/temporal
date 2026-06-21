@@ -98,6 +98,7 @@ type testOptions struct {
 	dynamicConfigSettings    []dynamicConfigOverride
 	clusterOptions           []TestClusterOption
 	testVars                 func(*testvars.TestVars) *testvars.TestVars
+	taskQueueRecorder        bool
 }
 
 type dynamicConfigOverride struct {
@@ -230,6 +231,7 @@ func WithTaskQueueRecorder() TestOption {
 		o.dedicatedCluster = true
 		o.clusterOptions = append(o.clusterOptions, WithClusterTaskQueueRecorder())
 		o.dedicatedReason = "task queue recorder used"
+		o.taskQueueRecorder = true
 	}
 }
 
@@ -334,6 +336,11 @@ func NewEnv(t *testing.T, opts ...TestOption) *TestEnv {
 		for _, override := range options.dynamicConfigSettings {
 			env.OverrideDynamicConfig(override.setting, override.value)
 		}
+	}
+	if options.taskQueueRecorder {
+		recorder := cluster.GetTaskQueueRecorder()
+		require.NotNil(t, recorder)
+		env.InjectHook(testhooks.NewHook(testhooks.HistoryTasksWritten, recorder.Record))
 	}
 
 	return env
