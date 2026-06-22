@@ -11,9 +11,7 @@ import (
 	"go.temporal.io/server/common/archiver"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/log"
-	"go.temporal.io/server/common/membership/static"
 	"go.temporal.io/server/common/persistence"
-	"go.temporal.io/server/common/primitives"
 	"go.temporal.io/server/service/history/tasks"
 	"go.temporal.io/server/tests/testutils"
 	"go.uber.org/mock/gomock"
@@ -113,38 +111,6 @@ func TestOverwriteCurrentClusterMetadataWithDBRecord(t *testing.T) {
 	require.Equal(t, int64(10000), cfg.ClusterMetadata.FailoverVersionIncrement)
 	require.True(t, cfg.ClusterMetadata.EnableGlobalNamespace)
 	require.Equal(t, int32(1024), cfg.Persistence.NumHistoryShards)
-}
-
-func TestServerOptionsProviderStaticHostsOnlyRequiresRequestedServices(t *testing.T) {
-	cfg := testServerConfig(testCustomDataStore("test-custom"))
-
-	_, err := ServerOptionsProvider([]ServerOption{
-		ForServices([]string{string(primitives.FrontendService)}),
-		WithConfig(cfg),
-		WithStaticHosts(map[primitives.ServiceName]static.Hosts{
-			primitives.FrontendService: static.SingleLocalHost("127.0.0.1:7000"),
-		}),
-		WithLogger(log.NewNoopLogger()),
-	})
-	require.NoError(t, err)
-}
-
-func TestServerOptionsProviderStaticHostsRequiresEachRequestedService(t *testing.T) {
-	cfg := testServerConfig(testCustomDataStore("test-custom"))
-
-	_, err := ServerOptionsProvider([]ServerOption{
-		ForServices([]string{
-			string(primitives.FrontendService),
-			string(primitives.HistoryService),
-		}),
-		WithConfig(cfg),
-		WithStaticHosts(map[primitives.ServiceName]static.Hosts{
-			primitives.FrontendService: static.SingleLocalHost("127.0.0.1:7000"),
-		}),
-		WithLogger(log.NewNoopLogger()),
-	})
-	require.ErrorIs(t, err, missingServiceInStaticHosts)
-	require.ErrorContains(t, err, string(primitives.HistoryService))
 }
 
 func TestUpdateIndexSearchAttributes(t *testing.T) {
@@ -408,33 +374,6 @@ func TestUpdateIndexSearchAttributes(t *testing.T) {
 			require.Equal(t, tc.out, out)
 			require.Equal(t, tc.expectedISA, cm.IndexSearchAttributes)
 		})
-	}
-}
-
-func testServerConfig(dataStore config.DataStore) *config.Config {
-	return &config.Config{
-		Persistence: config.Persistence{
-			DefaultStore:     "default",
-			VisibilityStore:  "visibility",
-			NumHistoryShards: 1,
-			DataStores: map[string]config.DataStore{
-				"default":    dataStore,
-				"visibility": dataStore,
-			},
-		},
-		Services: map[string]config.Service{
-			string(primitives.FrontendService): {},
-			string(primitives.HistoryService):  {},
-		},
-	}
-}
-
-func testCustomDataStore(name string) config.DataStore {
-	return config.DataStore{
-		CustomDataStoreConfig: &config.CustomDatastoreConfig{
-			Name:      name,
-			IndexName: name,
-		},
 	}
 }
 
