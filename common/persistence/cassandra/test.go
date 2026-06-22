@@ -222,16 +222,7 @@ func (s *TestCluster) updateSchemaVersion(newVersion string, minCompatibleVersio
 
 func (s *TestCluster) writeSchemaUpdateLog(oldVersion string, newVersion string, manifestMD5 string, description string) {
 	now := time.Now().UTC()
-	s.execSchemaVersionQuery(
-		writeSchemaUpdateHistoryCQL,
-		now.Year(),
-		int(now.Month()),
-		now,
-		oldVersion,
-		newVersion,
-		manifestMD5,
-		description,
-	)
+	s.execSchemaVersionQuery(writeSchemaUpdateHistoryCQL, now.Year(), int(now.Month()), now, oldVersion, newVersion, manifestMD5, description)
 }
 
 func (s *TestCluster) execSchemaVersionQuery(stmt string, args ...any) {
