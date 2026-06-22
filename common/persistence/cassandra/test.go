@@ -217,12 +217,14 @@ func (s *TestCluster) createSchemaVersionTables() {
 
 func (s *TestCluster) updateSchemaVersion(newVersion string, minCompatibleVersion string) {
 	now := time.Now().UTC()
-	s.execSchemaVersionQuery(writeSchemaVersionCQL, s.keyspace, now, newVersion, minCompatibleVersion)
+	s.execSchemaVersionQuery(writeSchemaVersionCQL,
+		s.keyspace, now, newVersion, minCompatibleVersion)
 }
 
 func (s *TestCluster) writeSchemaUpdateLog(oldVersion string, newVersion string, manifestMD5 string, description string) {
 	now := time.Now().UTC()
-	s.execSchemaVersionQuery(writeSchemaUpdateHistoryCQL, now.Year(), int(now.Month()), now, oldVersion, newVersion, manifestMD5, description)
+	s.execSchemaVersionQuery(writeSchemaUpdateHistoryCQL,
+		now.Year(), int(now.Month()), now, oldVersion, newVersion, manifestMD5, description)
 }
 
 func (s *TestCluster) execSchemaVersionQuery(stmt string, args ...any) {
