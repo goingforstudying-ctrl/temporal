@@ -200,16 +200,14 @@ func (s *TestCluster) LoadSchemaVersion() {
 
 func (s *TestCluster) newAdminDB(kind sqlplugin.DbKind, cfg *config.SQL) sqlplugin.AdminDB {
 	var db sqlplugin.AdminDB
-	var err error
-	err = backoff.ThrottleRetry(
+	err := backoff.ThrottleRetry(
 		func() error {
 			db, err = NewSQLAdminDB(kind, cfg, resolver.NewNoopResolver(), log.NewTestLogger(), metrics.NoopMetricsHandler)
 			return err
 		},
 		backoff.NewExponentialRetryPolicy(time.Second).WithExpirationInterval(time.Minute),
 		nil,
-	)
-	if err != nil {
+	); err != nil {
 		s.logger.Fatal("NewSQLAdminDB", tag.Error(err))
 	}
 	return db
