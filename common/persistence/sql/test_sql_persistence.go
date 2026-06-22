@@ -83,7 +83,7 @@ func (s *TestCluster) SetupTestDatabase() {
 	}
 	s.LoadSchema(path.Join(schemaDir, "temporal", "schema.sql"))
 	s.LoadSchema(path.Join(schemaDir, "visibility", "schema.sql"))
-	s.LoadSchemaVersion()
+	s.loadSchemaVersion()
 }
 
 // Config returns the persistence config for connecting to this test cluster
@@ -180,8 +180,7 @@ func (s *TestCluster) LoadSchema(schemaFile string) {
 	s.logger.Info("loaded schema")
 }
 
-// LoadSchemaVersion writes the schema metadata expected by server startup validation.
-func (s *TestCluster) LoadSchemaVersion() {
+func (s *TestCluster) loadSchemaVersion() {
 	db := s.newAdminDB(sqlplugin.DbKindMain, &s.cfg)
 	defer s.closeAdminDB(db)
 

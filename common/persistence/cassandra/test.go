@@ -113,7 +113,7 @@ func (s *TestCluster) SetupTestDatabase() {
 	}
 
 	s.LoadSchema(path.Join(schemaDir, "temporal", "schema.cql"))
-	s.LoadSchemaVersion()
+	s.loadSchemaVersion()
 }
 
 // TearDownTestDatabase from PersistenceTestCluster interface
@@ -202,8 +202,7 @@ func (s *TestCluster) LoadSchema(schemaFile string) {
 	s.logger.Info("loaded schema")
 }
 
-// LoadSchemaVersion writes the schema metadata expected by server startup validation.
-func (s *TestCluster) LoadSchemaVersion() {
+func (s *TestCluster) loadSchemaVersion() {
 	s.createSchemaVersionTables()
 	s.updateSchemaVersion(cassandraschema.Version, cassandraschema.Version)
 	s.writeSchemaUpdateLog("0", cassandraschema.Version, "", "initial version")
@@ -231,7 +230,7 @@ func (s *TestCluster) writeSchemaUpdateLog(oldVersion string, newVersion string,
 
 func (s *TestCluster) execSchemaVersionQuery(stmt string, args ...any) {
 	if err := s.session.Query(stmt, args...).Exec(); err != nil {
-		s.logger.Fatal("LoadSchemaVersion", tag.Error(err))
+		s.logger.Fatal("loadSchemaVersion", tag.Error(err))
 	}
 }
 
